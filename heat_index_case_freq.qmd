@@ -1,0 +1,188 @@
+---
+title: "heat_index_case_freq"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+
+library(tidyverse)
+library(skimr)
+library(patchwork)
+
+```
+
+
+
+
+```{r}
+# Load data
+
+cc_exposure_df <-
+  read_rds(file = "E:/Columbia Files 2022/R Project Folders/daily_heat/data/cc_exposure_df_rod.rds")
+
+```
+
+
+## Data summary (cases only)
+```{r warning = FALSE}
+
+cc_exposure_df %>% 
+  dplyr::filter(case == 1) %>% # exclude case-crossover controls
+  skimr::skim()
+
+```
+
+
+## Locations
+
+```{r}
+
+cc_exposure_df %>% 
+  dplyr::filter(case == 1) %>% 
+  count(site_name) %>% 
+  arrange(desc(n)) %>% 
+  as.data.frame() # show full list
+
+```
+
+
+## Clean/prepare dataset
+```{r}
+
+to_density_plot_all <-
+  cc_exposure_df %>%
+    filter(case == 1) %>% 
+    dplyr::select(site_name, d_event, tmp_f_mean, tmp_f_max,
+                  hi_f_mean, hi_f_max,
+                  wbgt_f_mean, wbgt_f_max, hsi) %>%
+   pivot_longer(-c(site_name, d_event, hsi), names_to = "Index", values_to = "Value") %>% 
+    mutate(index = 
+           case_when(
+                   Index %in% c("tmp_f_mean", "tmp_f_max") ~ "Temperature",
+      Index %in% c("hi_f_mean", "hi_f_max")  ~ "Heat Index",
+      Index %in% c("wbgt_f_mean", "wbgt_f_max") ~ "WBGT"),
+          type = 
+           case_when(
+                   Index %in% c("tmp_f_mean", "hi_f_mean", "wbgt_f_mean") ~ "Mean",
+      Index %in% c("tmp_f_max", "hi_f_max", "wbgt_f_max")    ~ "Max"),
+      index = fct_relevel(index, "Temperature", "Heat Index", "WBGT"),
+      type = fct_relevel(type, "Max", "Mean")
+    ) 
+  
+to_density_plot_all
+
+```
+
+
+## Summary Tables of Index values on Case days
+```{r}
+
+# Mean and median values
+
+mean_median <- 
+  to_density_plot_all %>% 
+  group_by(index, type) %>% 
+  summarise(mean = mean(Value),
+            median = median(Value)) 
+
+
+mean_median
+
+
+# Heat categories
+
+wbgt_heat_cat <-
+  to_density_plot_all %>% 
+    mutate
+
+
+```
+
+
+```{r}
+## Patchwork density plots: with Celsius scale
+density_temp <-
+  to_density_plot_all %>% 
+    filter(index %in% "Temperature") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Temperature" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Temperature (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10),
+                         sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily Temperature (°C)",
+                         breaks = seq(from = -20, to = 50, by = 10))) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.10, by = 0.02), limits = c(0.00, 0.10)) 
+                         
+
+density_hi <-
+  to_density_plot_all %>% 
+    filter(index %in% "Heat Index") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "Heat Index" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily Heat Index (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10),
+                         sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily Heat Index (°C)",
+                         breaks = seq(from = -20, to = 50, by = 10))) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.10, by = 0.02), limits = c(0.00, 0.10))
+
+density_wbgt <-
+  to_density_plot_all %>% 
+    filter(index %in% "WBGT") %>% 
+    ggplot(aes(x = Value, fill = type, colour = type)) +
+      geom_density(alpha = 0.5) +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Mean"))$median, size = 1, 
+                 color = "#00BFC4", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Max"))$median, size = 1,
+                 color = "#F8766D", linetype = "dashed") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Mean"))$mean, size = 1,
+                 color = "#00BFC4") +
+      geom_vline(xintercept = (mean_median %>% filter(index %in% "WBGT" & type %in% "Max"))$mean, size = 1,
+                 color = "#F8766D") +
+      geom_rug() +
+      theme_bw() +
+      labs(x = "Daily WBGT (°F)") +
+      theme(axis.title.y = element_blank()) +
+      scale_x_continuous(breaks = seq(from = 0, to = 120, by = 10),
+                         sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily WBGT (°C)",
+                         breaks = seq(from = -20, to = 50, by = 10))) +
+      scale_y_continuous(breaks = seq(from = 0.00, to = 0.10, by = 0.02), limits = c(0.00, 0.10))
+
+
+# patchwork grid plot
+
+plot_density_c <-
+  (density_temp | density_hi | density_wbgt) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(tag_levels = 'A') & 
+    theme(legend.position = "bottom")
+
+plot_density_c
+```
+
+
+
