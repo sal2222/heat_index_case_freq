@@ -12,6 +12,7 @@ editor_options:
 library(tidyverse)
 library(skimr)
 library(patchwork)
+library(lubridate)
 
 ```
 
@@ -185,4 +186,21 @@ plot_density_c
 ```
 
 
+## PLot by day
+
+```{r}
+
+to_density_plot_all %>% 
+  ggplot(aes(x = lubridate::date(d_event))) +
+  geom_bar()
+
+to_density_plot_all %>% 
+  ggplot(aes(x = lubridate::yday(d_event))) +
+  geom_bar()
+
+to_density_plot_all %>% 
+  ggplot(aes(x = lubridate::month(d_event))) +
+  geom_bar()
+  
+```
 
