@@ -94,6 +94,15 @@ mean_median <-
 mean_median
 
 
+mean_median %>%
+  pivot_longer(-c(index, type), names_to = "Statistic", values_to = "Value") %>%
+  unite("Index", index:type, sep = "_", remove = FALSE, na.rm = FALSE) %>% 
+  mutate(type = recode(type, )
+  ggplot(aes(x = Statistic, y = Value, fill = index)) +
+  geom_col(position = "dodge") + 
+   facet_wrap(~ type)
+
+
 # Heat categories
 
 wbgt_heat_cat <-
