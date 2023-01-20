@@ -1,13 +1,12 @@
 ---
-title: "heat_index_case_freq"
-format: html
-editor: visual
-editor_options: 
-  chunk_output_type: console
+title: "Heat indices and heat illness case frequencies"
+format:
+  html:
+    embed-resources: true
 ---
 
 
-```{r}
+```{r echo = FALSE, message = FALSE}
 
 library(tidyverse)
 library(skimr)
@@ -19,7 +18,7 @@ library(lubridate)
 
 
 
-```{r}
+```{r echo = FALSE}
 # Load data
 
 cc_exposure_df <-
@@ -28,8 +27,8 @@ cc_exposure_df <-
 ```
 
 
-## Data summary (cases only)
-```{r warning = FALSE}
+## Data summary (heat illness cases only)
+```{r warning = FALSE, echo = FALSE}
 
 cc_exposure_df %>% 
   dplyr::filter(case == 1) %>% # exclude case-crossover controls
@@ -40,7 +39,7 @@ cc_exposure_df %>%
 
 ## Locations
 
-```{r}
+```{r echo = FALSE}
 
 cc_exposure_df %>% 
   dplyr::filter(case == 1) %>% 
@@ -51,8 +50,9 @@ cc_exposure_df %>%
 ```
 
 
+
+```{r echo = FALSE, results = FALSE}
 ## Clean/prepare dataset
-```{r}
 
 to_density_plot_all <-
   cc_exposure_df %>%
@@ -76,11 +76,13 @@ to_density_plot_all <-
   
 to_density_plot_all
 
+# write_rds(to_density_plot_all, "G:/My Drive/research/heat_index_case_freq/data/to_density_plot_all.rds")
+
 ```
 
 
 ## Summary Tables of Index values on Case days
-```{r}
+```{r echo = FALSE, message = FALSE}
 
 # Mean and median values
 
@@ -97,23 +99,86 @@ mean_median
 mean_median %>%
   pivot_longer(-c(index, type), names_to = "Statistic", values_to = "Value") %>%
   unite("Index", index:type, sep = "_", remove = FALSE, na.rm = FALSE) %>% 
-  mutate(type = recode(type, )
+  mutate(type = recode(type, Max = "Maximum Daily", Mean = "Mean Daily")) %>% 
   ggplot(aes(x = Statistic, y = Value, fill = index)) +
-  geom_col(position = "dodge") + 
-   facet_wrap(~ type)
+    geom_col(position = "dodge") + 
+    facet_wrap(~ type + index) +
+    geom_text(aes(label = sprintf("%0.1f", round(Value, digits = 1))), vjust = 1.5, color = "white", position = position_dodge(.9))
 
-
-# Heat categories
-
-wbgt_heat_cat <-
-  to_density_plot_all %>% 
-    mutate
 
 
 ```
 
 
-```{r}
+## WBGT Heat Categories
+
+```{r echo = FALSE, warning = FALSE}
+
+# Heat categories
+
+wbgt_heat_cat <-
+  to_density_plot_all %>%
+  dplyr::filter(index %in% "WBGT") %>% 
+    mutate(HeatCat = case_when(
+                   Value < 78 ~ 0,
+                   Value >= 78 & Value < 82 ~ 1,
+                   Value >= 82 & Value < 85 ~ 2,
+                   Value >= 85 & Value < 88 ~ 3,
+                   Value >= 88 & Value < 90 ~ 4,
+                   Value >= 80  ~ 5),
+           HeatCat = as_factor(HeatCat))
+
+
+
+# n = 32,426 cases
+
+# Maximum daily WBGT (deg F) on heat illness case days
+wbgt_heat_cat %>% 
+  dplyr::filter(type %in% "Max") %>% 
+  count(HeatCat)
+
+
+# Frequency of maximum WBGT Heat Category on heat illness case days
+#1996 - 2019, 24 CONUS military installations, n = 32,426
+wbgt_heat_cat %>% 
+  dplyr::filter(type %in% "Max") %>%
+  count(HeatCat) %>% 
+   ggplot(aes(x = HeatCat, y = n, fill = HeatCat)) +
+    geom_col() + 
+    geom_text(aes(label = n), vjust = -0.5) +
+    scale_fill_manual("Heat Cat", values = c("1" = "white", "2" = "green", "3" = "yellow", "4" = "red", "5" = "black"))
+
+
+
+
+```
+
+
+## Cases by year, by month
+
+```{r echo = FALSE}
+
+cc_exposure_df %>%
+  dplyr::filter(case == 1) %>% 
+  mutate(year = as_factor(lubridate::year(d_event))) %>% 
+  ggplot(aes(x = year)) +
+  geom_bar() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+cc_exposure_df %>%
+  dplyr::filter(case == 1) %>% 
+  mutate(month = as_factor(lubridate::month(d_event))) %>% 
+  ggplot(aes(x = month)) +
+  geom_bar() 
+  
+```
+
+
+
+## Density plots
+
+```{r echo = FALSE, warning = FALSE}
 ## Patchwork density plots: with Celsius scale
 density_temp <-
   to_density_plot_all %>% 
@@ -136,7 +201,9 @@ density_temp <-
                          sec.axis = sec_axis(trans = ~ (5/9) * (. - 32), name = "Daily Temperature (°C)",
                          breaks = seq(from = -20, to = 50, by = 10))) +
       scale_y_continuous(breaks = seq(from = 0.00, to = 0.10, by = 0.02), limits = c(0.00, 0.10)) 
-                         
+
+
+density_temp                          
 
 density_hi <-
   to_density_plot_all %>% 
@@ -160,6 +227,9 @@ density_hi <-
                          breaks = seq(from = -20, to = 50, by = 10))) +
       scale_y_continuous(breaks = seq(from = 0.00, to = 0.10, by = 0.02), limits = c(0.00, 0.10))
 
+density_hi
+
+
 density_wbgt <-
   to_density_plot_all %>% 
     filter(index %in% "WBGT") %>% 
@@ -182,34 +252,18 @@ density_wbgt <-
                          breaks = seq(from = -20, to = 50, by = 10))) +
       scale_y_continuous(breaks = seq(from = 0.00, to = 0.10, by = 0.02), limits = c(0.00, 0.10))
 
+density_wbgt
 
 # patchwork grid plot
 
-plot_density_c <-
-  (density_temp | density_hi | density_wbgt) + 
-    plot_layout(guides = "collect") + 
-    plot_annotation(tag_levels = 'A') & 
-    theme(legend.position = "bottom")
+#plot_density_c <-
+#  (density_temp | density_hi | density_wbgt) + 
+#    plot_layout(guides = "collect") + 
+#    plot_annotation(tag_levels = 'A') & 
+#    theme(legend.position = "bottom")
 
-plot_density_c
+#plot_density_c
 ```
 
 
-## PLot by day
-
-```{r}
-
-to_density_plot_all %>% 
-  ggplot(aes(x = lubridate::date(d_event))) +
-  geom_bar()
-
-to_density_plot_all %>% 
-  ggplot(aes(x = lubridate::yday(d_event))) +
-  geom_bar()
-
-to_density_plot_all %>% 
-  ggplot(aes(x = lubridate::month(d_event))) +
-  geom_bar()
-  
-```
 
